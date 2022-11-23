@@ -1,0 +1,13 @@
+{
+    "name": "Voltz Organization Workflow",
+    "description": "Voltz Organization CI starter workflow.",
+    "iconName": "example-icon",
+    "categories": [
+        "Go"
+    ],
+    "filePatterns": [
+        "package.json$",
+        "^Dockerfile",
+        ".*\\.md$"
+    ]
+}
