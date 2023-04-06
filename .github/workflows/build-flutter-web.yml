@@ -1,0 +1,64 @@
+name: 'Build Flutter Web'
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+      default-agent:
+        required: true
+        type: string
+        default: self-hosted
+      working-directory:
+        required: true
+        type: string
+        default: .
+      flutter-version:
+        required: true
+        type: string
+        default: 3.3.0
+      upload-name:
+        required: true
+        type: string
+        default: build-artifacts
+      upload-path:
+        required: true
+        type: string
+        default: .
+      upload-retention:
+        required: true
+        type: number
+        default: 7
+
+jobs:
+  build:
+    runs-on: ${{ inputs.default-agent }}
+    defaults:
+      run:
+        shell: bash
+        working-directory: ${{ inputs.default-agent }}
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ inputs.flutter-version }}
+          channel: "stable"
+
+      - run: flutter upgrade
+
+      - run: flutter config --enable-web
+
+      - run: flutter clean
+
+      - run: flutter pub get
+
+      - run: flutter build web --release --web-renderer html
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ inputs.upload-name }}
+          path: ${{ inputs.upload-path }}
+          retention-days: ${{ inputs.upload-retention }}
