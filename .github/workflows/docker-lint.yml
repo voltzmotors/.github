@@ -3,6 +3,10 @@ name: 'Docker Linter'
 on:
   workflow_call:
     inputs:
+      default-agent:
+        required: true
+        type: string
+        default: self-hosted
       dockerfile:
         required: true
         type: string
@@ -10,7 +14,7 @@ on:
   
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.default-agent }}
 
     steps:
       - uses: actions/checkout@v3
