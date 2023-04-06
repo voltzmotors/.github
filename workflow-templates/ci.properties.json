@@ -1,6 +1,6 @@
 {
-    "name": "Voltz Organization Workflow",
-    "description": "Voltz Organization CI starter workflow.",
+    "name": "Voltz Motors Organization Workflow",
+    "description": "Voltz Motors Organization CI starter workflow.",
     "iconName": "example-icon",
     "categories": [
         "Go"
