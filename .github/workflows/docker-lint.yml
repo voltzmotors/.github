@@ -1,0 +1,21 @@
+name: 'Docker Linter'
+
+on:
+  workflow_call:
+    inputs:
+      dockerfile:
+        required: true
+        type: string
+        default: Dockerfile
+  
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: hadolint/hadolint-action@v1.6.0
+        with:
+            dockerfile: ${{ inputs.dockerfile }}
+            #ignore: DL3008 # remove this comment if continue-on-error is false
