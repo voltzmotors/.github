@@ -1,6 +1,8 @@
 name: 'Create Release'
 
 on:
+  push:
+    branches: [ $default-branch ]
   workflow_call:
     inputs:
       default-agent:
