@@ -38,7 +38,7 @@ jobs:
 
   release:
     runs-on: ${{ inputs.default-agent }}
-    if: ${{ inputs.version != null }}
+    #if: ${{ inputs.version != null }}
     steps:
       - uses: google-github-actions/release-please-action@v3
         id: release
