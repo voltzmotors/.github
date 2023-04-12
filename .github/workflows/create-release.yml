@@ -18,13 +18,17 @@ on:
         type: string
         default: simple
       pre-release:
-        required: true
+        required: false
         type: boolean
-        default: true
+        default: false
       package-name:
         required: true
         type: string
-        default: simple
+        default: release-please-action
+      changelog-path:
+        required: false
+        type: string
+        default: CHANGELOG.md
     secrets:
       github-pat:
         required: true
@@ -45,6 +49,6 @@ jobs:
         with:
           release-type: ${{ inputs.release-type }}
           package-name: ${{ github.repository }}-${{ github.sha }}
-          #prerelease: ${{ inputs.pre-release }}
-          changelog-path: CHANGELOG.md
+          prerelease: ${{ inputs.pre-release }}
+          changelog-path: ${{ inputs.changelog-path }}
           token: ${{ secrets.github-pat }}
