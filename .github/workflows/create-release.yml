@@ -45,7 +45,7 @@ jobs:
         with:
           release-type: ${{ inputs.release-type }}
           package-name: ${{ github.repository }}-${{ github.sha }}
-          prerelease: ${{ inputs.pre-release }}
+          #prerelease: ${{ inputs.pre-release }}
           changelog-path: CHANGELOG.md
           token: ${{ secrets.github-pat }}
 
