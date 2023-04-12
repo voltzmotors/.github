@@ -47,7 +47,7 @@ jobs:
           package-name: ${{ github.repository }}-${{ github.sha }}
           prerelease: ${{ inputs.pre-release }}
           changelog-path: CHANGELOG.md
-          token: $${{ secrets.github-pat }}
+          token: ${{ secrets.github-pat }}
 
       - uses: actions/checkout@v3
       - name: tag major and minor versions
