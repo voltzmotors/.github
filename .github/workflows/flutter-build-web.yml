@@ -3,9 +3,6 @@ name: 'Build Flutter Web'
 on:
   workflow_call:
     inputs:
-      environment:
-        required: true
-        type: string
       default-agent:
         required: true
         type: string
