@@ -18,6 +18,9 @@ on:
         required: true
         type: string
         default: 3.3.0
+      extra-params:
+        required: false
+        type: string
       upload-name:
         required: true
         type: string
@@ -54,7 +57,7 @@ jobs:
 
       - run: flutter pub get
 
-      - run: flutter build web --release --web-renderer html
+      - run: flutter build web --release --web-renderer html ${{ inputs.extra-params }}
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v3
