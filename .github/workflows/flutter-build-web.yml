@@ -58,7 +58,7 @@ jobs:
 
       - run: flutter pub get
 
-      - run: flutter build web --release --web-renderer html --dart-define bellyUrl=${{ vars.BELLYURL }} --dart-define mercadoPagoPublicKey=${{ secrets.MERCADOPAGOPUBLICKEY }}
+      - run: flutter build web --release --web-renderer html --dart-define bellyUrl=${{ vars.BELLYURL }} --dart-define mercadoPagoPublicKey=${{ secrets.MERCADOPAGOPUBLICKEY }} ${{ inputs.extra-params }}
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v3
