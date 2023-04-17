@@ -17,6 +17,9 @@ on:
         required: true
         type: string
         default: simple
+      package-name:
+        required: true
+        type: string
       changelog-path:
         required: false
         type: string
@@ -40,8 +43,7 @@ jobs:
         id: release
         with:
           release-type: ${{ inputs.release-type }}
-          package-name: ${{ github.repository }}-${{ github.sha }}
-          prerelease: ${{ inputs.pre-release }}
+          package-name: ${{ inputs.package-name }}
           changelog-path: ${{ inputs.changelog-path }}
           token: ${{ secrets.github-pat }}
       - name: tag major and minor versions
