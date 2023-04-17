@@ -17,14 +17,6 @@ on:
         required: true
         type: string
         default: simple
-      pre-release:
-        required: false
-        type: boolean
-        default: false
-      package-name:
-        required: true
-        type: string
-        default: release-please-action
       changelog-path:
         required: false
         type: string
