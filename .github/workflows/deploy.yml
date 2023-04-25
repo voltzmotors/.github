@@ -89,12 +89,6 @@ jobs:
           token: ${{ secrets.github.token }} # only needed if version is 'latest'
         id: install-helm
 
-      - name: Checkoutenv
-        uses: azure/setup-helm@v3
-        with:
-          version: '3.10.1'
-        id: install-helm
-
       - name: Install SOPS
         run: |
           sudo apt install wget -y
@@ -107,6 +101,11 @@ jobs:
           sudo apt install curl -y
           curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"  | bash
           sudo mv kustomize /usr/local/bin
+
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
 
       - name: Deploy K8s Manifests
         run: |
