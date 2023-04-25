@@ -43,7 +43,7 @@ on:
 
   
 jobs:
-  deploy-staging:
+  deploy:
       runs-on: ${{ inputs.default-agent }}
       steps:
       - name: Checkout
