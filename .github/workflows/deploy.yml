@@ -45,9 +45,6 @@ on:
 jobs:
   deploy-staging:
       runs-on: ${{ inputs.default-agent }}
-      # environment:
-      #   name: staging
-      #   url: https://repo-template-stg.voltzmotors.com
       steps:
       - name: Checkout
         uses: actions/checkout@v3
