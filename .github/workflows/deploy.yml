@@ -109,7 +109,7 @@ jobs:
 
       - name: Deploy K8s Manifests
         run: |
-          sops --kms "${{secrets.sops-key}}" -d -i deploy/${{ inputs.environment }}/secret.yaml
+          for secret in deploy/prd/enc-*.yaml ; do sops --kms "${{secrets.sops-key}}" -d -i $secret
           kustomize build ./deploy/${{ inputs.environment }}/ | kubectl apply -f-
 
       - name: Deploy helm
