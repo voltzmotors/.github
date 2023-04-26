@@ -5,7 +5,7 @@ on:
   workflow_call:
     inputs:
       default-agent:
-        required: true
+        required: false
         type: string
         default: self-hosted
       aws-region:
