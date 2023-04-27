@@ -1,0 +1,101 @@
+###############################################################################
+#
+# Reusable Workflow - Vulnerability Scan
+#
+# Usage:
+#  build-image:
+#    uses: voltzmotors/.github/.github/workflows/docker-scan.yml@main
+#    with:
+#      default-agent: self-hosted
+#      aws-region: <region where the registry is hosted>
+#      role-to-assume: < AWS role to be assumed >
+#      role-duration-seconds: 1200
+#      role-session-name: < a name for the AWS session >
+#      image-name: < repository ou application name >
+#      image-tag: < image tag to scanned >
+#    secrets:
+#      aws-access-key-id: < AWS key >
+#      aws-secret-access-key: < AWS secret >
+###############################################################################
+
+name: 'Vulnerability Scan'
+
+on:
+  workflow_call:
+    inputs:
+      default-agent:
+        required: false
+        type: string
+        default: self-hosted
+      aws-region:
+        required: true
+        type: string
+      role-to-assume:
+        required: true
+        type: string
+      role-duration-seconds:
+        required: true
+        type: number
+        default: 1200
+      role-session-name:
+        required: true
+        type: string
+        default: "github-actions"
+      image-name:
+        required: true
+        type: string
+      image-tag:
+        required: true
+        type: string
+    secrets:
+      aws-access-key-id:
+        required: true
+      aws-secret-access-key:
+        required: true
+  
+jobs:
+  scan:
+    runs-on: ${{ inputs.default-agent }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_CI }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_CI }}
+          aws-region: ${{ inputs.aws-region }}
+          role-to-assume: ${{ inputs.aws-role-to-assume }}
+          role-duration-seconds: ${{ inputs.role-duration-seconds }}
+          role-session-name: ${{ inputs.role-session-name }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Pull Image
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        run: |
+          docker images
+          docker pull $REGISTRY/${{ inputs.image-name }}:${{ inputs.image-tag }}
+          docker tag $REGISTRY/${{ inputs.image-name }}:${{ inputs.image-tag }} ${{ inputs.image-name }}:latest
+
+      - name: Image Scan with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ inputs.image-name }}
+          format: "table"
+          exit-code: "0"
+          ignore-unfixed: true
+          vuln-type: "os,library"
+          severity: "UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL"
+          output: 'trivy-results.txt'
+
+      - name: Upload Scan Results
+        uses: actions/upload-artifact@v3
+        with:
+          name: trivy-results
+          path: trivy-results.txt
+          retention-days: 7
