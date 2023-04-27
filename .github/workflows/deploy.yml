@@ -1,18 +1,126 @@
 name: 'Deploy Application'
 
+
 on:
   workflow_call:
     inputs:
+      default-agent:
+        required: false
+        type: string
+        default: self-hosted
+      aws-region:
+        required: true
+        type: string
+      role-to-assume:
+        required: true
+        type: string
+      role-duration-seconds:
+        required: false
+        type: number
+        default: 1200
+      role-session-name:
+        required: true
+        type: string
+        default: "github-actions"
+      cluster-name:
+        required: true
+        type: string
+      app-name:
+        required: true  
+        type: string
+      file-pattern:
+        required: false  
+        type: string
+        default: "enc-*.yaml"
       environment:
         required: true
         type: string
+        description: deployment environment (i.e. staging, production)
+    secrets:
+      aws-access-key-id:
+        required: true
+      aws-secret-access-key:
+        required: true
+      github-token:
+        required: true
+      sops-key:
+        required: true
+
   
 jobs:
-  build:
-    runs-on: ubuntu-latest
+  deploy:
+      runs-on: ${{ inputs.default-agent }}
+      steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.github-token }}
 
-    steps:
-      - uses: actions/checkout@v3
+      - name: "Install AWS Cli"
+        run : |
+            curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+            unzip awscliv2.zip
+            sudo ./aws/install
+            rm awscliv2.zip
 
-      - name: Run a one-line script
-        run: echo Deploy application to ${{ inputs.environment }}
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        id: aws-login
+        with:
+          aws-access-key-id: ${{ secrets.aws-access-key-id }}
+          aws-secret-access-key: ${{ secrets.aws-secret-access-key }}
+          aws-region: ${{ inputs.aws-region }}
+          role-to-assume: ${{ inputs.role-to-assume }}
+          role-duration-seconds: ${{ inputs.role-duration-seconds }}
+          role-session-name: ${{ inputs.role-duration-seconds }}
+      
+      - name: Login to Origin ECR
+        id: ecr-to
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Install and configure kubectl
+        run: |
+          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" 
+          chmod +x kubectl 
+          sudo mv kubectl /usr/local/bin/ 
+          aws eks --region ${{ inputs.aws-region }} update-kubeconfig --name ${{ inputs.cluster-name }}
+          kubectl config use-context "arn:aws:eks:${{ inputs.aws-region }}:${{ steps.aws-login.outputs.aws-account-id }}:cluster/${{ inputs.cluster-name }}"
+
+      - name: Install helm
+        uses: azure/setup-helm@v3
+        with:
+          version: '3.10.1' # default is latest (stable)
+          token: ${{ secrets.github.token }} # only needed if version is 'latest'
+        id: install-helm
+
+      - name: Install SOPS
+        run: |
+          sudo apt install wget -y
+          wget -O sops https://github.com/mozilla/sops/releases/download/v3.7.1/sops-v3.7.1.linux
+          sudo chmod +x sops
+          sudo mv sops /usr/local/bin
+
+      - name: Install Kustomize
+        run: |
+          sudo apt install curl -y
+          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"  | bash
+          sudo mv kustomize /usr/local/bin
+
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Deploy K8s Manifests
+        run: |
+          for secret in deploy/${{ inputs.environment }}/${{ inputs.file-pattern }}; do sops --kms "${{secrets.sops-key}}" -d -i $secret
+          kustomize build ./deploy/${{ inputs.environment }}/ | kubectl apply -f-
+
+      - name: Deploy helm
+        run: |
+          helm upgrade --install --atomic --timeout 3m --debug \
+            -f ./deploy/${{ inputs.environment }}/values.yaml \
+            -n ${{inputs.app-name}} \
+            ${{inputs.app-name}} \
+            ./deploy/charts/${{inputs.app-name}}/
