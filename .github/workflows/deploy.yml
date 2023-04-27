@@ -114,7 +114,7 @@ jobs:
 
       - name: Deploy K8s Manifests
         run: |
-          for secret in deploy/${{ inputs.environment }}/${{ inputs.file-pattern }}; do sops --kms "${{secrets.sops-key}}" -d -i $secret
+          for secret in deploy/${{ inputs.environment }}/${{ inputs.file-pattern }}; do sops --kms "${{secrets.sops-key}}" -d -i $secret; done
           kustomize build ./deploy/${{ inputs.environment }}/ | kubectl apply -f-
 
       - name: Deploy helm
