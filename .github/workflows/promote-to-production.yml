@@ -2,17 +2,144 @@ name: 'Promote to Production'
 
 on:
   workflow_call:
+    inputs:
+      default-agent:
+        required: true
+        type: string
+        default: self-hosted
+      image-tag:
+        required: true
+        type: string
+      env-from:
+        required: true
+        type: string
+        default: staging
+      env-to:
+        required: true
+        type: string
+        default: production
+      app-name:
+        required: true
+        type: string
+      from-env:
+        required: true
+        type: string
+        default: stg 
+      to-env:
+        required: true
+        type: string
+        default: prd
+    secrets:
+      ghactions-token:
+        required: true
+
+
   push:
     branches: [ $default-branch ]
   pull_request:
     branches: [ $default-branch ]
   
 jobs:
-  build:
-    runs-on: ubuntu-latest
-
+  promote:
+    name: Promote Image
+    runs-on: ${{ vars.default-agent }}
+    # environment:
+    #   name: production
+    #   url: https://repo-template-prd.voltzmotors.com
+    if: ${{ github.ref == 'refs/heads/main' }}
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.ghactions-token }}
+              
+      - name: install yq
+        env:
+          VERSION: v4.2.0
+          BINARY: yq_linux_amd64
+        run: |
+          wget https://github.com/mikefarah/yq/releases/download/${{ env.VERSION }}/${{ env.BINARY }}.tar.gz -O - |\
+          tar xz && sudo mv ${{ env.BINARY }} /usr/bin/yq
 
-      - name: Run a one-line script
-        run: echo Hello from Voltz Motors Organization
+      - name: 'Export tag'
+        id: export_tag
+        run: |
+          # unzip tag_id.zip
+          echo "ORIGIN_IMAGE_TAG=$( yq e '.image.repository' ./deploy/${{ vars.env-from }}/values-app.yaml | cut -d ':' -f 2 )" >> $GITHUB_ENV
+          echo "$( yq e '.image.repository' ./deploy/${{ vars.env-from }}/values-app.yaml | cut -d ':' -f 2 )" 
+          # sed -i 's/staging/production/g' tag_id
+          # echo "DESTINY_IMAGE_TAG=${{ env.ORIGIN_IMAGE_TAG }}" >> $GITHUB_ENV
+      
+      - name: Configure AWS Staging Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_CI }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_CI }}
+          aws-region: ${{ vars.STG_AWS_REGION }}
+          role-to-assume: ${{ vars.from-role }}
+          role-duration-seconds: 1200
+          role-session-name: github_actions
+      
+      - name: Login to Origin ECR
+        id: ecr-from
+        uses: aws-actions/amazon-ecr-login@v1
+      
+      - name: Pull Image from Origin ECR
+        env:
+          ECR_FROM: ${{ steps.ecr-from.outputs.registry }}
+        run: |
+          echo "${{ env.ORIGIN_IMAGE_TAG }}"
+          docker pull $ECR_FROM/${{ env.ECR_REPOSITORY}}:${{ env.ORIGIN_IMAGE_TAG }}
+      
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_CI }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_CI }}
+          aws-region: ${{ env.PRD_AWS_REGION }}
+          role-to-assume: ${{ vars.to-role }}
+          role-duration-seconds: 1200
+          role-session-name: github_actions
+      
+      - name: Login to Destination ECR
+        id: ecr-to
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Tag Image Workflow Dispatch
+        env:
+          ECR_FROM: ${{ steps.ecr-from.outputs.registry }}
+          ECR_TO: ${{ steps.ecr-to.outputs.registry }}
+        run: |
+          docker tag $ECR_FROM/${{ env.ECR_REPOSITORY}}:${{ env.ORIGIN_IMAGE_TAG }} $ECR_TO/${{ env.ECR_REPOSITORY}}:${{ env.DESTINY_IMAGE_TAG }}
+          echo "DESTINY_IMAGE_TAG=$ECR_TO/${{ env.ECR_REPOSITORY}}:${{ env.DESTINY_IMAGE_TAG }}" >> $GITHUB_ENV
+      
+      - name: Push Image to Destination ECR
+        env:
+          ECR_TO: ${{ steps.ecr-to.outputs.registry }}
+        run: |
+          docker push ${{ env.DESTINY_IMAGE_TAG }}
+
+      - name: replace image name
+        env:
+          ECR: ${{ steps.ecr-to.outputs.registry }}      
+          IMAGE_TAG: ${{ vars.image-tag }}
+          IMAGE_NAME: ${{ steps.ecr-to.outputs.registry }}/${{ env.ECR_REPOSITORY}}:${{env.ORIGIN_IMAGE_TAG}}
+          APP_VERSION: ${{inputs.app_version}}
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          sed -i "s~.repository:.*~ repository: ${{ env.DESTINY_IMAGE_TAG }} ## ${{ env.COMMIT_SHA }}~" deploy/${{ vars.env-to }}/values-app.yaml
+          sed -i "s~.appVersion:.*~appVersion: ${{ env.APP_VERSION }} ## ${{ env.COMMIT_SHA }}~" deploy/${{ vars.env-to }}/charts/repo-template/Chart.yaml
+
+      - name: Setup Git 
+        run: |
+          git config --local user.name github-actions
+          git config --local user.email github-actions@github.com    
+
+      - name: Commmit And Push Changes
+        run: |
+          git status
+          git add deploy/${{ vars.env-to }}/values-app.yaml
+          git add deploy/${{ vars.env-to }}/charts/${{ vars.app-name }}/Chart.yaml
+          git commit -m "[skip ci] Auto commit: Update production image value on helm values"
+          git push origin ${GITHUB_REF##*/}
