@@ -40,10 +40,16 @@ on:
         required: true
       aws-secret-access-key:
         required: true
+    outputs:
+      image-tag:
+        description: "image tag"
+        value: ${{ jobs.build.outputs.image-name }}
   
 jobs:
   build:
     runs-on: ${{ inputs.default-agent }}
+    outputs:
+      image-name: ${{ steps.push.outputs.image-name }}
     steps:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v2
@@ -70,7 +76,9 @@ jobs:
 
       - name: Push Image
         if: ${{ inputs.push-image == true }}
+        id: push
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         run: |
           docker push $ECR_REGISTRY/${{ inputs.image-name }}:${{ inputs.image-tag }}
+          echo "image-name=$ECR_REGISTRY/${{ inputs.image-name }}:${{ inputs.image-tag }}" >> $GITHUB_OUTPUT
